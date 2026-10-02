@@ -26,10 +26,11 @@ async function viewerRow(ctx: Ctx): Promise<UserRow | null> {
   return q1<UserRow>(pool, 'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [ctx.user.id]);
 }
 
+/** Idempotency key from the header (or body), scoped to the route so keys can't collide across actions. */
 function idemKey(ctx: Ctx): string | null {
   const h = ctx.req.headers['idempotency-key'];
   const k = (Array.isArray(h) ? h[0] : h) ?? (typeof ctx.body?.idempotencyKey === 'string' ? ctx.body.idempotencyKey : null);
-  return k ? String(k).slice(0, 100) : null;
+  return k ? `${ctx.method} ${ctx.path} ${String(k).slice(0, 100)}`.slice(0, 200) : null;
 }
 
 /**

@@ -173,7 +173,7 @@ export async function parcelDetail(db: Db, id: string, viewer: UserRow | null, a
  */
 export async function claimIdempotency(c: pg.PoolClient, userId: number, key: string | null, at: number): Promise<unknown | null> {
   if (!key) return null;
-  if (key.length > 100) throw bad('invalid_idempotency_key', 'Idempotency-Key is too long');
+  if (key.length > 200) throw bad('invalid_idempotency_key', 'Idempotency-Key is too long');
   const ins = await c.query(
     'INSERT INTO idempotency (user_id, key, created_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
     [userId, key, new Date(at)],
