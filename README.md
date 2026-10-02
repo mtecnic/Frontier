@@ -168,6 +168,7 @@ To update later, run `WEB_ROOT=/var/www/frontier/public scripts/deploy.sh`. It p
   Patterns are flagged for review, never blocked automatically: identical accuracy values across many cells, straight grid-order purchase runs, feeder accounts, and more than 300 purchases a day.
 
   A **frozen** account keeps playing, but it can't buy other players' land, its Spooks fizzle, and its store purchases don't pay the owner. An admin can clear it.
+- **Rate limits** key on the player's IP address. Behind nginx or Apache, the API reads the proxy's `X-Real-IP` or `X-Forwarded-For` header. It trusts those headers only on connections from a local or private address. The configs in `deploy/` overwrite any value a client sends.
 - **Integrity**: each purchase is one transaction. It takes an advisory lock on the parcel ID plus row locks (parcels before users), so two buyers can't both win. Purchases and shop actions accept an `Idempotency-Key` header, so a retried request never charges twice. Cash has a `CHECK (cash_cents >= 0)` constraint.
 
 ## Testing
@@ -183,6 +184,7 @@ The API tests wipe and use `postgres://frontier:frontier@localhost:5432/frontier
 ## Design decisions where the spec left room
 
 - **Store parcels and land rent.** Taken literally, 2% rent on a store's +$7,500 would pay $150 an hour, swamping the $15/h business rent the spec prices stores on. By default only the land part of a store parcel earns land rent (`STORE_PREMIUM_EARNS_RENT`). When a store parcel is jumped, the new max is 1.5× the land part of the price, plus the flat $7,500.
+- **Partial hours.** Rent is credited per whole hour. When a parcel changes (a sale, an owner visit that restores a slipped price, or a store opening), the partial hour is paid up to that moment at the old rate, so nothing is lost or overpaid.
 - **"Opening the app"** for the 12-hour salary window means any check-in, which the app sends on open and while it's on screen. A check-in after 30 minutes of silence counts as a new login and shows the since-last-login report.
 - **Login report.** "Spooks Lost" counts your Spooks destroyed by Flares. Business rent is included under Store Proceeds. Prizes get their own line.
 - **Local leaderboards** use the nightly snapshot, filtered to players who currently own land within 50 km of you and re-ranked.
