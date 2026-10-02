@@ -14,11 +14,11 @@ const only = args.find((a) => a === 'client' || a === 'server');
 const out = join(root, process.env.PUBLIC_OUT || 'public');
 const BUILD = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12) + Math.random().toString(36).slice(2, 6);
 
-/** Keep MapLibre as separate ES modules: its worker loads from next to maplibre-gl.mjs. */
+/** Keep MapLibre as separate ES modules: its worker loads from next to maplibre-gl.js. */
 const maplibreExternal = {
   name: 'maplibre-external',
   setup(build) {
-    build.onResolve({ filter: /^maplibre-gl$/ }, () => ({ path: './vendor/maplibre/maplibre-gl.mjs', external: true }));
+    build.onResolve({ filter: /^maplibre-gl$/ }, () => ({ path: './vendor/maplibre/maplibre-gl.js', external: true }));
   },
 };
 
@@ -29,8 +29,14 @@ function copyStatic() {
   writeFileSync(join(out, 'index.html'), html);
   const vendor = join(out, 'vendor/maplibre');
   mkdirSync(vendor, { recursive: true });
-  for (const f of ['maplibre-gl.mjs', 'maplibre-gl-shared.mjs', 'maplibre-gl-worker.mjs']) {
-    cpSync(join(root, 'node_modules/maplibre-gl/dist', f), join(vendor, f));
+  // Shipped as .js (not .mjs): stock nginx/Apache type lists don't know .mjs, and module
+  // scripts served as application/octet-stream refuse to load. Internal references follow.
+  for (const f of ['maplibre-gl', 'maplibre-gl-shared', 'maplibre-gl-worker']) {
+    const src = readFileSync(join(root, 'node_modules/maplibre-gl/dist', `${f}.mjs`), 'utf8')
+      .replaceAll('maplibre-gl-shared.mjs', 'maplibre-gl-shared.js')
+      .replaceAll('maplibre-gl-worker.mjs', 'maplibre-gl-worker.js')
+      .replace(/\/\/# sourceMappingURL=\S+\s*$/, '');
+    writeFileSync(join(vendor, `${f}.js`), src);
   }
   cpSync(join(root, 'node_modules/maplibre-gl/LICENSE.txt'), join(vendor, 'LICENSE.txt'));
 }

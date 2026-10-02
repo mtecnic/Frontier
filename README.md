@@ -130,7 +130,13 @@ To update later, run `WEB_ROOT=/var/www/frontier/public scripts/deploy.sh`. It p
 
 **No Node on the web host?** Build `public/` anywhere, upload it to the static folder, and run the API on any machine you control. Set `apiBase` in `config.js` to that API's URL, and set `CORS_ORIGINS` on the API to the site's origin.
 
-**Serving from a subfolder** (`example.com/frontier/`): everything in `public/` uses relative paths. Proxy `/frontier/api/` to the API and set `API_PREFIX=/frontier/api` in `.env`.
+**Serving from a subfolder of an existing site** (for example `waive.online/static/frontier/`): everything in `public/` uses relative paths and standard file types, so it works from any folder your web server already serves. Tested behind a stock Ubuntu nginx.
+
+1. Copy the *contents* of `public/` into that folder.
+2. Run the API (steps 1–5 and 7 above), with `SERVE_STATIC=0` and `PUBLIC_URL=https://waive.online/static/frontier` in `.env`.
+3. Add the `location` block from `deploy/nginx-subfolder.conf` to your site's existing `server { }` block and reload nginx. On Apache use `ProxyPass /static/frontier/api/ http://127.0.0.1:8787/api/`.
+
+The files alone will load and show the map, but signing in, buying and everything else go through `/static/frontier/api/`, so step 3 is required.
 
 ## Configuration
 

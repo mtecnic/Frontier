@@ -15,12 +15,12 @@ const SHELL_FILES = [
   `./app.js?v=${__BUILD__}`,
   `./app.css?v=${__BUILD__}`,
   './config.js',
-  './manifest.webmanifest',
+  './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './vendor/maplibre/maplibre-gl.mjs',
-  './vendor/maplibre/maplibre-gl-shared.mjs',
-  './vendor/maplibre/maplibre-gl-worker.mjs',
+  './vendor/maplibre/maplibre-gl.js',
+  './vendor/maplibre/maplibre-gl-shared.js',
+  './vendor/maplibre/maplibre-gl-worker.js',
 ];
 
 self.addEventListener('install', (event) => {
