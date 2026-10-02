@@ -370,11 +370,24 @@ export function setFollow(on: boolean) {
 // ---- Data -------------------------------------------------------------------
 
 let fetchSeq = 0;
+let lastFetch: { w: number; s: number; e: number; n: number; at: number; truncated: boolean } | null = null;
 
-export async function refreshParcels() {
+/** Fetch owned parcels for the view (padded). Small pans inside the last fetch reuse it for 30 s. */
+export async function refreshParcels(force = true) {
   if (!map) return;
-  const seq = ++fetchSeq;
   const b = map.getBounds();
+  if (
+    !force &&
+    lastFetch &&
+    !lastFetch.truncated &&
+    Date.now() - lastFetch.at < 30_000 &&
+    b.getWest() >= lastFetch.w &&
+    b.getEast() <= lastFetch.e &&
+    b.getSouth() >= lastFetch.s &&
+    b.getNorth() <= lastFetch.n
+  )
+    return;
+  const seq = ++fetchSeq;
   const padLat = (b.getNorth() - b.getSouth()) * 0.25;
   const padLng = (b.getEast() - b.getWest()) * 0.25;
   const w = Math.max(-180, b.getWest() - padLng);
@@ -387,6 +400,7 @@ export async function refreshParcels() {
       `/parcels?bbox=${w.toFixed(5)},${s.toFixed(5)},${e.toFixed(5)},${n.toFixed(5)}`,
     );
     if (seq !== fetchSeq) return;
+    lastFetch = { w, s, e, n, at: Date.now(), truncated: r.truncated };
     noteServerTime(r.serverTime);
     const cpd = cellsPerDegree();
     if (!r.truncated) {
@@ -446,7 +460,7 @@ export async function initMap(container: HTMLElement, tap: (id: string) => void)
   await Promise.all([loadImage('ghost', ART.ghost), loadImage('cabin', ART.cabin), loadImage('nugget', ART.nugget), loadImage('promo', ART.promo)]);
   addLayers();
 
-  const refetch = debounce(() => refreshParcels(), 250);
+  const refetch = debounce(() => refreshParcels(false), 250);
   map.on('moveend', () => {
     render();
     refetch();
