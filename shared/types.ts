@@ -115,7 +115,8 @@ export interface CheckinResult {
   newLogin: boolean;
   summary: Summary | null;
   income: { salaryCents: number; rentCents: number; businessCents: number };
-  visited: { parcelId: string; price: number } | null;
+  /** Set when the fix was on the player's own parcel (an owner visit). */
+  visited: { parcelId: string; price: number; previousPrice: number } | null;
   prizes: ClaimedPrize[];
   serverTime: string;
 }

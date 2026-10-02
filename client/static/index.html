@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Frontier</title>
+  <meta name="description" content="Stake your claim on the real map. Walk to a parcel, buy it, collect rent, and watch out for claim jumpers.">
+  <meta name="theme-color" content="#1d3a3f">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Frontier">
+  <link rel="stylesheet" href="./app.css?v=__BUILD__">
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div id="map" aria-label="Map of parcels"></div>
+  <div id="hud-top" class="hud-top"></div>
+  <div id="fabs" class="fabs"></div>
+  <nav id="nav" class="nav" aria-label="Main"></nav>
+  <aside id="sheet" class="sheet" aria-live="polite"></aside>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="splash" class="splash" aria-hidden="true"><img src="./icons/icon-192.png" alt="" width="96" height="96"><div>Frontier</div></div>
+  <noscript><p style="padding:2em">Frontier needs JavaScript to run.</p></noscript>
+  <script type="module" src="./app.js?v=__BUILD__"></script>
+</body>
+</html>
