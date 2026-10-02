@@ -6,7 +6,10 @@ import { pool } from '../db.ts';
 import { migrate } from '../migrate.ts';
 import { runNightly } from '../nightly.ts';
 
-if (existsSync(env.GAME_CONFIG)) applyConfig(JSON.parse(readFileSync(env.GAME_CONFIG, 'utf8')));
+if (existsSync(env.GAME_CONFIG)) {
+  const overrides = JSON.parse(readFileSync(env.GAME_CONFIG, 'utf8'));
+  applyConfig(Object.fromEntries(Object.entries(overrides).filter(([k]) => !k.startsWith('_'))));
+}
 migrate(false)
   .then(() => runNightly({ force: process.argv.includes('--force') }))
   .then((r) => {

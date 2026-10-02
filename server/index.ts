@@ -29,7 +29,7 @@ const MIME: Record<string, string> = {
 function loadGameConfig() {
   if (!existsSync(env.GAME_CONFIG)) return;
   const overrides = JSON.parse(readFileSync(env.GAME_CONFIG, 'utf8'));
-  const unknown = applyConfig(overrides);
+  const unknown = applyConfig(Object.fromEntries(Object.entries(overrides).filter(([k]) => !k.startsWith('_'))));
   console.log(`Loaded game rule overrides from ${env.GAME_CONFIG}`);
   if (unknown.length) console.warn(`Ignored unknown config keys: ${unknown.join(', ')}`);
 }

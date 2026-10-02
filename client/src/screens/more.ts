@@ -1,5 +1,6 @@
 import { CONFIG } from '../../../shared/config.ts';
 import { ART, ICON } from '../art.ts';
+import { canOfferInstall, offerInstall } from '../install.ts';
 import { state } from '../state.ts';
 import { openSheet } from '../ui.ts';
 import { html, raw } from '../util.ts';
@@ -18,6 +19,13 @@ export function showMore() {
       ${item('#/boards', ICON.boards, 'Leaderboards', 'Six boards, global and local')}
       ${item('#/help', ICON.help, 'Help', `How to play, from ${CONFIG.GUIDE_NAME}`)}
       ${state.me?.isAdmin ? item('#/admin', ICON.admin, 'Admin', 'Flags, frozen accounts, offers, QR stations') : ''}
+      ${canOfferInstall()
+        ? html`<a class="menu-item" href="#/more" data-install><span class="menu-icon">${raw(ICON.here)}</span><span><b>Install the app</b><br><span class="muted small">Full screen, and jump alerts on iPhone</span></span></a>`
+        : ''}
     </nav>`,
+  });
+  document.querySelector('[data-install]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    offerInstall();
   });
 }

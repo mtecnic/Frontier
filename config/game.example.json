@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to config/game.json and keep only the keys you want to change. Every key and its meaning is in shared/config.ts. Restart the server to apply. Never change CELL_DEG after launch.",
+  "RENT_RATE": 0.02,
+  "SALARY_CENTS_PER_HOUR": 500,
+  "DECAY_HOURS": 168,
+  "SELLER_SHARE": 0.8
+}
