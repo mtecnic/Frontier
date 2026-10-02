@@ -155,7 +155,8 @@ export async function parcelDetail(db: Db, id: string, viewer: UserRow | null, a
     ...parcelView(p, at),
     pricePaid: Math.round(p.price_paid_cents / 100),
     purchasedAt: p.purchased_at.toISOString(),
-    lastVisitAt: p.last_visit_at.toISOString(),
+    // When the owner last stood here is theirs to know.
+    lastVisitAt: viewer && viewer.id === p.owner_id ? p.last_visit_at.toISOString() : null,
     hourlyRentCents: hourlyLandRentCents(ps, at),
     businessRentCents: hourlyBusinessRentCents(ps),
     locked: p.locked_until.getTime() > at,
@@ -270,7 +271,7 @@ export async function buyParcel(buyerId: number, id: string, opts: BuyOptions, a
       throw forbidden('under_review', 'Your account is under review, so you can only buy unowned land for now.');
 
     // 3. Settle the seller's accrued rent on this parcel up to this moment.
-    if (parcel && seller) await settleParcels(c, seller.id, [parcel], at, parcel.id);
+    if (parcel && seller) await settleParcels(c, seller.id, [parcel], at, parcel.id, true);
 
     // 4. Charge the buyer the current price; credit the seller their share.
     const ps = parcel ? priceState(parcel) : null;
@@ -419,8 +420,8 @@ export async function buildStore(userId: number, id: string, at: number, idempot
     if (parcel.has_store) throw conflict('already_store', 'This parcel already has a store.');
     if (user.permits < 1)
       throw conflict('no_permit', `You need a Building Permit ($${CONFIG.PERMIT_PRICE.toLocaleString()} at the Land Office).`);
-    // Bank rent at the pre-store rate first.
-    await settleParcels(c, userId, [parcel], at, id);
+    // Bank rent up to now at the pre-store rate first.
+    await settleParcels(c, userId, [parcel], at, id, true);
     await c.query('UPDATE parcels SET has_store = true, store_built_at = $2, last_visit_at = $2 WHERE id = $1', [
       id,
       new Date(at),

@@ -24,13 +24,15 @@ export function parseFix(raw: unknown): Fix | null {
     accuracy: n('accuracy'),
     timestamp: n('timestamp'),
     sentAt: n('sentAt'),
+    serverTimestamp: n('serverTimestamp'),
   };
   if (
     !(fix.lat >= -90 && fix.lat <= 90) ||
     !(fix.lng >= -180 && fix.lng < 180) ||
     !(fix.accuracy >= 0) ||
     !(fix.timestamp > 0) ||
-    !(fix.sentAt > 0)
+    !(fix.sentAt > 0) ||
+    !(fix.serverTimestamp > 0)
   ) {
     return { ...fix, accuracy: NaN };
   }
@@ -53,9 +55,12 @@ export async function verifyFix(c: pg.PoolClient, user: UserRow, fix: Fix, now: 
     status = 'inaccurate';
     message = `GPS accuracy is ±${Math.round(fix.accuracy)} m; it needs to be ${CONFIG.MAX_ACCURACY_M} m or better.`;
   } else {
-    // Age is measured on the device's own clock, so a phone whose clock is off still works.
+    // Age on the device's own clock (works even if the phone's clock is wrong) ...
     const age = (fix.sentAt - fix.timestamp) / 1000;
-    if (age > CONFIG.MAX_FIX_AGE_S || age < -5) {
+    // ... and against the server clock, via the offset the client learned from us, so an old
+    // request replayed later is refused. A few seconds of slack cover latency.
+    const serverAge = (now - fix.serverTimestamp) / 1000;
+    if (age > CONFIG.MAX_FIX_AGE_S || age < -5 || serverAge > CONFIG.MAX_FIX_AGE_S + 10 || serverAge < -15) {
       status = 'stale';
       message = 'That location fix is too old. Waiting for a fresh one.';
     } else if (user.last_fix_at && user.last_fix_lat != null && user.last_fix_lng != null) {

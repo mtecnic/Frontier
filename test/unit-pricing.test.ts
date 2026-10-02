@@ -78,6 +78,10 @@ test('rent: whole hours only, fraction carries, capped at 72h', () => {
   assert.equal(capped.settledAt, T0 + 200 * HOUR_MS);
   const store = settleRent({ ...p, hasStore: true }, T0, T0 + 3 * HOUR_MS);
   assert.equal(store.businessCents, 4500);
+  // Prorated: 1.5 hours at $100 -> 200 + 100 cents, settled exactly to now.
+  const pro = settleRent(p, T0, T0 + 90 * 60_000, true);
+  assert.equal(pro.landCents, 300);
+  assert.equal(pro.settledAt, T0 + 90 * 60_000);
 });
 
 test('salary: 12 hours after each open, partial hours carry while the window is open', () => {
@@ -132,6 +136,9 @@ test('grid ids', () => {
   assert.deepEqual(parseParcelId('7233:-23028'), c);
   assert.equal(parseParcelId('abc'), null);
   assert.equal(parseParcelId('99999:0'), null);
+  assert.equal(parseParcelId('07233:-23028'), null, 'leading zeros are not canonical');
+  assert.equal(parseParcelId('0:-0'), null, '-0 is not canonical');
+  assert.deepEqual(parseParcelId('0:0'), { gy: 0, gx: 0 });
   const b = cellBounds(c.gy, c.gx);
   assert.ok(isInCell((b.north + b.south) / 2, (b.east + b.west) / 2, c.gy, c.gx));
   // ~555 m north-south

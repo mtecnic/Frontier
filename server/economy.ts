@@ -116,6 +116,7 @@ export async function settleParcels(
   parcels: ParcelRow[],
   now: number,
   ledgerParcelId: string | null = null,
+  prorate = false,
 ): Promise<RentTotals> {
   const ids: string[] = [];
   const times: Date[] = [];
@@ -123,7 +124,7 @@ export async function settleParcels(
   let businessCents = 0;
   for (const p of parcels) {
     if (p.owner_id !== ownerId) continue;
-    const r = settleRent(priceState(p), p.rent_settled_at.getTime(), now);
+    const r = settleRent(priceState(p), p.rent_settled_at.getTime(), now, prorate);
     if (r.settledAt === p.rent_settled_at.getTime()) continue;
     landCents += r.landCents;
     businessCents += r.businessCents;

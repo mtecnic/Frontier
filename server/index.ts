@@ -68,7 +68,10 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string
   headers['Content-Length'] = String(st.size);
   res.writeHead(200, headers);
   if (req.method === 'HEAD') res.end();
-  else createReadStream(file).pipe(res);
+  else
+    createReadStream(file)
+      .on('error', () => res.destroy())
+      .pipe(res);
   return true;
 }
 
@@ -92,9 +95,19 @@ export async function start() {
   const ipLimiter = new RateLimiter(env.TEST_MODE ? 1_000_000 : 600, 60_000);
   const prefix = env.API_PREFIX.replace(/\/+$/, '');
 
+  process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
+
   const server = createServer(async (req, res) => {
     const started = Date.now();
-    const url = new URL(req.url ?? '/', 'http://local');
+    let url: URL;
+    try {
+      // A path like "//host" would be read as an authority; force it to be a path.
+      url = new URL(`http://local/${(req.url ?? '/').replace(/^\/+/, '')}`);
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad request');
+      return;
+    }
     const path = url.pathname;
     const isApi = path === prefix || path.startsWith(prefix + '/');
 

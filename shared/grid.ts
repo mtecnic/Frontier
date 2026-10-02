@@ -26,12 +26,13 @@ export function cellIdOf(lat: number, lng: number): string {
 
 const ID_RE = /^(-?\d{1,6}):(-?\d{1,6})$/;
 
-/** Parse "gy:gx"; returns null for anything malformed or off the globe. */
+/** Parse "gy:gx"; returns null for anything malformed, non-canonical ("07:-0") or off the globe. */
 export function parseParcelId(id: string): Cell | null {
   const m = ID_RE.exec(id);
   if (!m) return null;
   const gy = Number(m[1]);
   const gx = Number(m[2]);
+  if (parcelId(gy, gx) !== id) return null;
   const cpd = cellsPerDegree();
   if (gy < -90 * cpd || gy >= 90 * cpd || gx < -180 * cpd || gx >= 180 * cpd) return null;
   return { gy, gx };

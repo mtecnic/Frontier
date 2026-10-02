@@ -15,7 +15,14 @@ export function onCheckin(fn: (r: CheckinResult) => void) {
 }
 
 export function toApiFix(f: LocalFix): Fix {
-  return { lat: f.lat, lng: f.lng, accuracy: f.accuracy, timestamp: f.timestamp, sentAt: Date.now() };
+  return {
+    lat: f.lat,
+    lng: f.lng,
+    accuracy: f.accuracy,
+    timestamp: f.timestamp,
+    sentAt: Date.now(),
+    serverTimestamp: f.timestamp + state.serverOffset,
+  };
 }
 
 function onPosition(p: GeolocationPosition) {

@@ -9,6 +9,8 @@ export interface Fix {
   timestamp: number;
   /** Date.now() on the device when the request was sent, epoch ms (device clock). */
   sentAt: number;
+  /** The fix time converted to the server's clock (device time + offset learned from API responses). */
+  serverTimestamp: number;
 }
 
 export type FixStatus = 'accepted' | 'inaccurate' | 'stale' | 'too_fast' | 'invalid' | 'throttled' | 'none';

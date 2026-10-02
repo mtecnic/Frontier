@@ -62,16 +62,27 @@ export interface RentSettlement {
   settledAt: number;
 }
 
-/** Rent owed on one parcel for every whole hour since `settledAt`, capped at RENT_BANK_HOURS. */
-export function settleRent(p: PriceState, settledAt: number, now: number): RentSettlement {
-  const elapsed = Math.floor((now - settledAt) / HOUR_MS);
-  if (elapsed <= 0) return { hours: 0, landCents: 0, businessCents: 0, settledAt };
+/**
+ * Rent owed on one parcel for every whole hour since `settledAt`, capped at RENT_BANK_HOURS.
+ * With `prorate`, the trailing partial hour is paid too, "up to this moment": used when the
+ * parcel is about to change (a sale, an owner visit restoring the price, a store opening), so
+ * the time before the change is priced at the rate that applied then.
+ */
+export function settleRent(p: PriceState, settledAt: number, now: number, prorate = false): RentSettlement {
+  const elapsed = Math.max(0, Math.floor((now - settledAt) / HOUR_MS));
   const hours = Math.min(elapsed, CONFIG.RENT_BANK_HOURS);
   let landCents = 0;
   for (let k = 0; k < hours; k++) landCents += hourlyLandRentCents(p, settledAt + k * HOUR_MS);
-  const businessCents = hours * hourlyBusinessRentCents(p);
+  let businessCents = hours * hourlyBusinessRentCents(p);
   const overflowed = elapsed > CONFIG.RENT_BANK_HOURS;
-  return { hours, landCents, businessCents, settledAt: overflowed ? now : settledAt + hours * HOUR_MS };
+  let next = overflowed ? now : settledAt + hours * HOUR_MS;
+  if (prorate && !overflowed && now > next) {
+    const frac = (now - next) / HOUR_MS;
+    landCents += Math.round(hourlyLandRentCents(p, next) * frac);
+    businessCents += Math.round(hourlyBusinessRentCents(p) * frac);
+    next = now;
+  }
+  return { hours, landCents, businessCents, settledAt: next };
 }
 
 export interface SalaryState {

@@ -47,7 +47,7 @@ export const env = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
-  /** Trust X-Forwarded-For / X-Forwarded-Proto from a reverse proxy. */
+  /** Believe X-Real-IP / X-Forwarded-For, but only on connections from a local or private address (your proxy). */
   TRUST_PROXY: bool('TRUST_PROXY', true),
   /** smtp://user:pass@host:587 or smtps://... ; leave empty to use sendmail or the console. */
   SMTP_URL: str('SMTP_URL'),

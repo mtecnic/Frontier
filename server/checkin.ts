@@ -32,9 +32,11 @@ export async function checkin(userId: number, rawFix: unknown, now: number): Pro
         acceptedCell = check.cellId;
         const p = inc.locked.get(check.cellId);
         if (p && p.owner_id === userId) {
-          // Owner visit: bank rent at the old price first, then restore the price to max.
+          // Owner visit: if the price had slipped, bank rent up to now at the old price,
+          // then restore the price to max.
           const previousPrice = currentPrice(priceState(p), now);
-          await settleParcels(c, userId, [p], now, p.id);
+          const maxNow = currentPrice(priceState({ ...p, last_visit_at: new Date(now) }), now);
+          if (previousPrice < maxNow) await settleParcels(c, userId, [p], now, p.id, true);
           await c.query('UPDATE parcels SET last_visit_at = $2 WHERE id = $1', [p.id, new Date(now)]);
           p.last_visit_at = new Date(now);
           visited = { parcelId: p.id, price: currentPrice(priceState(p), now), previousPrice };

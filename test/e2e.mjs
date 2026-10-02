@@ -222,6 +222,26 @@ await step('player2 sees the promotion nearby', async () => {
   await shot2('21-promotions');
 });
 
+await step('passkey: add one, sign out, sign back in with it', async () => {
+  const ctx4 = await browser.newContext({ viewport: { width: 390, height: 844 }, geolocation: where, permissions: ['geolocation'] });
+  const p4 = await ctx4.newPage();
+  const cdp = await ctx4.newCDPSession(p4);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  await signUp(p4, 'keyholder@example.com', 'keyholder');
+  await p4.evaluate(() => (location.hash = '#/me'));
+  await p4.click('.sheet.open [data-action=passkey]');
+  await p4.waitForSelector('.toast.good >> text=Passkey added', { timeout: 15000 });
+  await p4.click('.sheet.open [data-action=logout]');
+  await p4.waitForFunction(() => !document.body.classList.contains('signed-in'));
+  await p4.evaluate(() => (location.hash = '#/login'));
+  await p4.click('.sheet.open [data-action=passkey]');
+  await p4.waitForFunction(() => document.body.classList.contains('signed-in'), null, { timeout: 15000 });
+  await ctx4.close();
+});
+
 await browser.close();
 if (errors.length) {
   console.log('\nBrowser errors:\n' + errors.join('\n'));

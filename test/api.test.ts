@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
-import { Client, fixIn, startTestServer } from './helpers.ts';
+import { Client, fixIn, setServerOffset, startTestServer } from './helpers.ts';
 import { settleRent } from '../shared/pricing.ts';
 import { HOUR_MS } from '../shared/config.ts';
 
@@ -22,7 +22,8 @@ let bob: Client;
 let admin: Client;
 
 async function advance(ms: number) {
-  await anon.ok('POST', '/test/clock', { advanceMs: ms });
+  const r = await anon.ok('POST', '/test/clock', { advanceMs: ms });
+  setServerOffset(r.offsetMs);
 }
 
 /** Walk to a cell (two minutes pass first so the speed check is happy) and check in. */
@@ -99,6 +100,10 @@ test('location trust: accuracy, freshness and speed', async () => {
   let r = await alice.ok('POST', '/checkin', { fix: fixIn(GY, GX, 150) });
   assert.equal(r.fix, 'inaccurate');
   r = await alice.ok('POST', '/checkin', { fix: fixIn(GY, GX, 10, 45_000) });
+  assert.equal(r.fix, 'stale');
+  // A captured request replayed later: device times look fresh, server time doesn't.
+  const replay = { ...fixIn(GY, GX), serverTimestamp: Date.now() - 120_000 };
+  r = await alice.ok('POST', '/checkin', { fix: replay });
   assert.equal(r.fix, 'stale');
   r = await alice.ok('POST', '/checkin', { fix: fixIn(GY, GX) });
   assert.equal(r.fix, 'accepted');

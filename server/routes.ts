@@ -13,13 +13,14 @@ import { getBoard } from './boards.ts';
 import { claimedPrizes } from './prizes.ts';
 import { prizesNear, promotionsNear } from './nearby.ts';
 import { redeemQr } from './business.ts';
-import { notifyUser, removeSubscription, saveSubscription, vapidPublicKey } from './push.ts';
+import { isPushEndpoint, notifyUser, removeSubscription, saveSubscription, vapidPublicKey } from './push.ts';
 import { deleteAccount, ledgerPage, renameUser } from './account.ts';
 import { mailConfigured } from './mail.ts';
 import { runNightly } from './nightly.ts';
 import { credit, type UserRow } from './economy.ts';
 
 const checkinLimiter = new RateLimiter(8, 10_000);
+const pushTestLimiter = new RateLimiter(1, 60_000);
 
 async function viewerRow(ctx: Ctx): Promise<UserRow | null> {
   if (!ctx.user) return null;
@@ -27,10 +28,10 @@ async function viewerRow(ctx: Ctx): Promise<UserRow | null> {
 }
 
 /** Idempotency key from the header (or body), scoped to the route so keys can't collide across actions. */
-function idemKey(ctx: Ctx): string | null {
+function idemKey(ctx: Ctx, scope = ''): string | null {
   const h = ctx.req.headers['idempotency-key'];
   const k = (Array.isArray(h) ? h[0] : h) ?? (typeof ctx.body?.idempotencyKey === 'string' ? ctx.body.idempotencyKey : null);
-  return k ? `${ctx.method} ${ctx.path} ${String(k).slice(0, 100)}`.slice(0, 200) : null;
+  return k ? `${ctx.method} ${ctx.path} ${scope} ${String(k).slice(0, 100)}`.slice(0, 200) : null;
 }
 
 /**
@@ -91,7 +92,9 @@ export function buildRouter(): Router {
 
   r.get('/me/ledger', 'user', async (ctx) => {
     const before = ctx.query.get('before');
-    const rows = await ledgerPage(ctx.user!.id, before ? num(before, 'before', 1) : null);
+    const b = before ? Number(before) : null;
+    if (b != null && !(Number.isSafeInteger(b) && b > 0)) throw bad('invalid_before', 'before must be a ledger row id');
+    const rows = await ledgerPage(ctx.user!.id, b);
     return rows.map((x) => ({ ...x, time: x.time.toISOString() }));
   });
 
@@ -130,7 +133,8 @@ export function buildRouter(): Router {
   r.post('/parcels/:id/store', 'user', (ctx) => withFix(ctx, () => buildStore(ctx.user!.id, ctx.params.id!, now(), idemKey(ctx))));
 
   r.post('/shop/buy', 'user', (ctx) => {
-    const req = parseShopRequest(ctx.body, idemKey(ctx));
+    const b = ctx.body ?? {};
+    const req = parseShopRequest(b, idemKey(ctx, `${b.item}x${b.qty ?? 1}@${b.place ?? 'office'}:${b.parcelId ?? ''}`));
     const run = () => shopBuy(ctx.user!.id, req, now());
     return req.place === 'store' ? withFix(ctx, run) : run();
   });
@@ -177,8 +181,16 @@ export function buildRouter(): Router {
 
   r.post('/push/subscribe', 'user', async (ctx) => {
     const s = ctx.body?.subscription;
-    if (typeof s?.endpoint !== 'string' || !/^https:\/\//.test(s.endpoint) || typeof s?.keys?.p256dh !== 'string' || typeof s?.keys?.auth !== 'string')
-      throw bad('invalid_subscription', 'Invalid push subscription.');
+    if (
+      typeof s?.endpoint !== 'string' ||
+      s.endpoint.length > 1000 ||
+      !isPushEndpoint(s.endpoint) ||
+      typeof s?.keys?.p256dh !== 'string' ||
+      typeof s?.keys?.auth !== 'string' ||
+      s.keys.p256dh.length > 200 ||
+      s.keys.auth.length > 100
+    )
+      throw bad('invalid_subscription', 'That push subscription is not from a supported browser push service.');
     await saveSubscription(ctx.user!.id, s);
     return { ok: true };
   });
@@ -189,6 +201,7 @@ export function buildRouter(): Router {
   });
 
   r.post('/push/test', 'user', async (ctx) => {
+    if (!pushTestLimiter.take(String(ctx.user!.id))) throw new HttpError(429, 'rate_limited', 'One test alert a minute, please.');
     const sent = await notifyUser(ctx.user!.id, {
       title: `${CONFIG.GAME_NAME} alerts are on`,
       body: "You'll hear from us when someone jumps your claim.",

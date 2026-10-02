@@ -47,10 +47,38 @@ export function vapidPublicKey(): string {
   return vapidPublic;
 }
 
+/** Browser push services we deliver to; anything else is refused (no requests to arbitrary hosts). */
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^android\.googleapis\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/,
+  /(^|\.)push\.apple\.com$/,
+  /\.notify\.windows\.com$/,
+];
+const MAX_DEVICES = 10;
+
+export function isPushEndpoint(endpoint: string): boolean {
+  try {
+    const u = new URL(endpoint);
+    return u.protocol === 'https:' && PUSH_HOSTS.some((re) => re.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
 export async function saveSubscription(userId: number, sub: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+  // Keep each player's newest few devices.
+  await pool.query(
+    `DELETE FROM push_subscriptions WHERE user_id = $1 AND id NOT IN (
+       SELECT id FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2)`,
+    [userId, MAX_DEVICES - 1],
+  );
+  // An endpoint is a secret capability URL owned by one browser; if another account
+  // registered it before, this browser has since signed in as someone else.
   await pool.query(
     `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`,
+     ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+       created_at = EXCLUDED.created_at`,
     [userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth, new Date(now())],
   );
 }

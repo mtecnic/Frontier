@@ -79,6 +79,12 @@ export class Client {
   }
 }
 
+/** How far the server's test clock is ahead of real time (tracked from /test/clock replies). */
+let serverOffset = 0;
+export function setServerOffset(ms: number) {
+  serverOffset = ms;
+}
+
 /** A fix inside cell (gy, gx), with a fresh device timestamp. */
 export function fixIn(gy: number, gx: number, accuracy = 10, ageMs = 0) {
   const t = Date.now();
@@ -88,5 +94,6 @@ export function fixIn(gy: number, gx: number, accuracy = 10, ageMs = 0) {
     accuracy,
     timestamp: t - ageMs,
     sentAt: t,
+    serverTimestamp: t - ageMs + serverOffset,
   };
 }

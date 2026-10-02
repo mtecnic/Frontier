@@ -114,6 +114,10 @@ const ipLimit = (n: number) => (env.TEST_MODE ? 1_000_000 : n);
 const linkPerIp = new RateLimiter(ipLimit(10), 10 * MINUTE_MS);
 const linkPerEmail = new RateLimiter(4, 10 * MINUTE_MS);
 const verifyPerIp = new RateLimiter(ipLimit(30), 10 * MINUTE_MS);
+/** Across all of an email's outstanding codes; together with 5 tries per code this caps guessing. */
+const verifyPerEmail = new RateLimiter(env.TEST_MODE ? 1_000_000 : 12, 60 * MINUTE_MS);
+const passkeyOptionsPerIp = new RateLimiter(ipLimit(30), 10 * MINUTE_MS);
+const MAX_CODE_ATTEMPTS = 5;
 const signupPerIp = new RateLimiter(env.SIGNUPS_PER_IP_PER_DAY, DAY_MS);
 
 const challenges = new Map<string, { challenge: string; userId: number | null; expires: number }>();
@@ -168,16 +172,24 @@ export function registerAuthRoutes(r: Router) {
       const id = Number(ctx.body?.requestId);
       const code = String(ctx.body?.code ?? '').replace(/\D/g, '');
       if (!Number.isInteger(id) || code.length !== 6) throw bad('invalid_code', 'Enter the 6-digit code from the email.');
-      req = await q1<Req>(pool, 'SELECT * FROM login_requests WHERE id = $1', [id]);
-      if (req && !req.used_at) {
-        const a = Buffer.from(sha256(code));
-        const b = Buffer.from(req.code_hash);
-        if (req.attempts >= 5) throw bad('too_many_attempts', 'Too many wrong codes. Request a new one.');
-        if (!timingSafeEqual(a, b)) {
-          await pool.query('UPDATE login_requests SET attempts = attempts + 1 WHERE id = $1', [id]);
-          throw bad('invalid_code', "That code isn't right.");
-        }
+      // Count the attempt atomically *before* comparing, so parallel guesses can't exceed the limit.
+      const counted = await q1<Req>(
+        pool,
+        `UPDATE login_requests SET attempts = attempts + 1
+          WHERE id = $1 AND used_at IS NULL AND attempts < $2 RETURNING *`,
+        [id, MAX_CODE_ATTEMPTS],
+      );
+      if (!counted) {
+        const r = await q1<Req>(pool, 'SELECT * FROM login_requests WHERE id = $1', [id]);
+        if (r && !r.used_at && r.attempts >= MAX_CODE_ATTEMPTS)
+          throw bad('too_many_attempts', 'Too many wrong codes. Request a new one.');
+        throw bad('expired', 'That sign-in code has expired or was already used. Request a new one.');
       }
+      if (!verifyPerEmail.take(counted.email.toLowerCase()))
+        throw new HttpError(429, 'rate_limited', 'Too many attempts for this email. Wait a few minutes.');
+      if (!timingSafeEqual(Buffer.from(sha256(code)), Buffer.from(counted.code_hash)))
+        throw bad('invalid_code', "That code isn't right.");
+      req = counted;
     }
     if (!req || req.used_at || req.expires_at.getTime() < at)
       throw bad('expired', 'That sign-in link or code has expired or was already used. Request a new one.');
@@ -277,7 +289,8 @@ export function registerAuthRoutes(r: Router) {
     return { ok: true };
   });
 
-  r.post('/auth/passkey/login/options', 'none', async () => {
+  r.post('/auth/passkey/login/options', 'none', async (ctx) => {
+    if (!passkeyOptionsPerIp.take(ctx.ip)) throw new HttpError(429, 'rate_limited', 'Too many attempts. Wait a few minutes.');
     const { rpID } = rp();
     const options = await generateAuthenticationOptions({ rpID, userVerification: 'preferred' });
     const id = token(16);

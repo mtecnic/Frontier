@@ -123,15 +123,25 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
+const PRIVATE_PEER = /^(::1|127\.|::ffff:127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fc|fd|::ffff:10\.|::ffff:192\.168\.)/i;
+
+/**
+ * The player's IP for rate limits. Proxy headers are only believed when the
+ * connection itself comes from a local/private address (our nginx/Apache),
+ * and then we take what the proxy saw: X-Real-IP, or the right-most
+ * X-Forwarded-For hop (left-most entries are whatever the client sent).
+ */
 export function clientIp(req: IncomingMessage): string {
-  if (env.TRUST_PROXY) {
-    const xff = req.headers['x-forwarded-for'];
-    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0]?.trim();
-    if (first) return first;
-    const real = req.headers['x-real-ip'];
-    if (typeof real === 'string' && real) return real;
-  }
-  return req.socket.remoteAddress || 'unknown';
+  const peer = req.socket.remoteAddress || 'unknown';
+  if (!env.TRUST_PROXY || !PRIVATE_PEER.test(peer)) return peer;
+  const real = req.headers['x-real-ip'];
+  if (typeof real === 'string' && real.trim()) return real.trim();
+  const xff = req.headers['x-forwarded-for'];
+  const hops = (Array.isArray(xff) ? xff.join(',') : xff ?? '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
+  return hops[hops.length - 1] ?? peer;
 }
 
 export async function readJson(req: IncomingMessage, limit = 64 * 1024): Promise<any> {

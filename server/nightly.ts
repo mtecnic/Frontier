@@ -1,5 +1,5 @@
 import { CONFIG, DAY_MS, HOUR_MS } from '../shared/config.ts';
-import { pool, q, q1 } from './db.ts';
+import { pool, q, q1, tx } from './db.ts';
 import { env } from './env.ts';
 import { now } from './clock.ts';
 import { raiseFlag } from './flags.ts';
@@ -95,7 +95,12 @@ export async function runNightly(opts: { force?: boolean; at?: number } = {}): P
     }
   };
   await step('prizes', () => spawnPrizes(pool, at));
-  await step('leaderboards', () => buildLeaderboards(pool, day));
+  await step('leaderboards', () =>
+    tx(async (c) => {
+      await c.query('SELECT pg_advisory_xact_lock(4242001)');
+      return buildLeaderboards(c, day);
+    }),
+  );
   await step('ledgerAudit', async () => {
     const a = await auditLedger(at);
     return { checked: a.checked, mismatches: a.mismatches.length };
