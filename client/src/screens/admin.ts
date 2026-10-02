@@ -4,7 +4,7 @@ import { api } from '../api.ts';
 import { getMap } from '../map.ts';
 import { state } from '../state.ts';
 import { actions, busy, openSheet, setSheetBody, sheetBody, toast } from '../ui.ts';
-import { ago, html, money, type Raw } from '../util.ts';
+import { ago, escapeHtml, html, money, type Raw } from '../util.ts';
 
 type Tab = 'overview' | 'flags' | 'users' | 'promos' | 'qr';
 let tab: Tab = 'overview';
@@ -290,10 +290,11 @@ function printQr(token: string, name: string, parcel: string) {
     toast('Allow pop-ups to print the code.', 'bad');
     return;
   }
-  w.document.write(`<!doctype html><meta charset="utf-8"><title>${name}</title>
+  const safeName = escapeHtml(name);
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>${safeName}</title>
     <style>body{font-family:system-ui,sans-serif;text-align:center;padding:24px}svg{width:min(80vw,420px);height:auto}h1{margin:.2em 0}p{color:#444}</style>
-    <h1>Free Flare!</h1><p>Scan with your phone's camera while you're here at <b>${name.replace(/</g, '&lt;')}</b>.</p>${svg}
-    <p style="font-size:12px">Parcel ${parcel} · once per player per day<br>${url}</p><script>setTimeout(()=>print(),300)</script>`);
+    <h1>Free Flare!</h1><p>Scan with your phone's camera while you're here at <b>${safeName}</b>.</p>${svg}
+    <p style="font-size:12px">Parcel ${escapeHtml(parcel)} · once per player per day<br>${escapeHtml(url)}</p><script>setTimeout(()=>print(),300)</script>`);
   w.document.close();
 }
 

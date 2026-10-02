@@ -20,7 +20,8 @@
     "test": "node --test --test-concurrency=1 test/*.test.ts",
     "test:unit": "node --test test/unit-*.test.ts",
     "icons": "node scripts/gen-icons.mjs",
-    "test:e2e": "node test/e2e.mjs"
+    "test:e2e": "node test/e2e.mjs",
+    "simulate": "node scripts/simulate.ts"
   },
   "dependencies": {
     "@simplewebauthn/server": "^14.0.3",

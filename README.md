@@ -151,7 +151,7 @@ To update later, run `WEB_ROOT=/var/www/frontier/public scripts/deploy.sh`. It p
 
 **Client (`public/config.js`)**: `apiBase`, `mapStyle`, `mapStyleDark`, `defaultCenter`, `defaultZoom`. The default map is [OpenFreeMap](https://openfreemap.org), which serves OpenStreetMap vector tiles with no API key and no per-load fees.
 
-**Game rules**: copy `config/game.example.json` to `config/game.json`, keep the keys you want to change, and restart. Every key is documented in `shared/config.ts`. If cash piles up, the spec suggests changing these, in order: `RENT_RATE`, `SALARY_CENTS_PER_HOUR`, `DECAY_HOURS`, `SELLER_SHARE`. Never change `CELL_DEG` after launch, because parcel IDs depend on it.
+**Game rules**: copy `config/game.example.json` to `config/game.json`, keep the keys you want to change, and restart. Before changing anything, check the effect with `npm run simulate` (Node 22.18+). It replays the spec's balance check (casual, regular and heavy players) using the current rules; with the defaults it lands within a day of the spec's table. Every key is documented in `shared/config.ts`. If cash piles up, the spec suggests changing these, in order: `RENT_RATE`, `SALARY_CENTS_PER_HOUR`, `DECAY_HOURS`, `SELLER_SHARE`. Never change `CELL_DEG` after launch, because parcel IDs depend on it.
 
 ## Operations
 

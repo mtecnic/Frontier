@@ -109,9 +109,11 @@ async function createUser(email: string, username: string, ip: string): Promise<
 
 // ---- Routes -----------------------------------------------------------------
 
-const linkPerIp = new RateLimiter(10, 10 * MINUTE_MS);
+// TEST_MODE lifts the per-IP limits so test suites can create many players from one address.
+const ipLimit = (n: number) => (env.TEST_MODE ? 1_000_000 : n);
+const linkPerIp = new RateLimiter(ipLimit(10), 10 * MINUTE_MS);
 const linkPerEmail = new RateLimiter(4, 10 * MINUTE_MS);
-const verifyPerIp = new RateLimiter(30, 10 * MINUTE_MS);
+const verifyPerIp = new RateLimiter(ipLimit(30), 10 * MINUTE_MS);
 const signupPerIp = new RateLimiter(env.SIGNUPS_PER_IP_PER_DAY, DAY_MS);
 
 const challenges = new Map<string, { challenge: string; userId: number | null; expires: number }>();
