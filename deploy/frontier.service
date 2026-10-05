@@ -1,0 +1,25 @@
+# systemd unit for the Frontier API (and nightly job).
+#   sudo cp deploy/frontier.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now frontier
+[Unit]
+Description=Frontier game API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=frontier
+Group=frontier
+WorkingDirectory=/opt/frontier
+EnvironmentFile=/opt/frontier/.env
+ExecStart=/usr/bin/node /opt/frontier/dist/server.mjs
+Restart=always
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
